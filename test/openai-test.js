@@ -1,10 +1,9 @@
 const miharu = require('../dist/index.js').default;
 
-// Initialize miharu
-miharu.init();
-
 // Test OpenAI API call with real API key
 async function testOpenAIInterception() {
+  // Initialize miharu (now async)
+  await miharu.init();
   console.log('Testing OpenAI API interception...');
   
   const apiKey = process.env.OPENAI_API_KEY;
