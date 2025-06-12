@@ -1,38 +1,17 @@
-import { LLMCallData, OpenAIResponse } from './types';
-import { calculateCost } from './cost-calculator';
-import { Database } from './database';
+import { LLMCallData, OpenAIResponse } from '../shared/types';
+import { calculateCost } from '../analytics/cost-calculator';
+import { createErrorCallData } from '../storage/models/llm-call';
+import { isOpenAIApiCall, extractUrlFromInput } from './openai-detector';
 
-interface MiharuOptions {
-  // Future options can be added here
-}
-
-class Miharu {
-  private initialized = false;
+export class FetchWrapper {
   private originalFetch: typeof globalThis.fetch | null = null;
-  private database: Database;
+  private onApiCall?: (callData: LLMCallData) => void;
 
-  constructor() {
-    this.database = new Database();
+  constructor(onApiCall?: (callData: LLMCallData) => void) {
+    this.onApiCall = onApiCall;
   }
 
-  async init(options?: MiharuOptions): Promise<void> {
-    if (this.initialized) {
-      return;
-    }
-
-    console.log('Hello, greeting from miharu!');
-    
-    try {
-      await this.database.init();
-      this.setupFetchInterception();
-      this.initialized = true;
-    } catch (error) {
-      console.error('[miharu-ai] Failed to initialize database:', error);
-      throw error;
-    }
-  }
-
-  private setupFetchInterception(): void {
+  setup(): void {
     if (!globalThis.fetch) {
       console.warn('[miharu-ai] fetch is not available in this environment');
       return;
@@ -52,10 +31,10 @@ class Miharu {
   }
 
   private async interceptedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const url = extractUrlFromInput(input);
     
     // Check if this is an OpenAI API call
-    if (this.isOpenAIApiCall(url)) {
+    if (isOpenAIApiCall(url)) {
       return await this.handleOpenAICall(input, init);
     }
 
@@ -64,7 +43,7 @@ class Miharu {
   }
 
   private async handleOpenAICall(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const url = extractUrlFromInput(input);
     console.log('[miharu-ai] Intercepted OpenAI API call:', url);
     
     const startTime = Date.now();
@@ -80,30 +59,19 @@ class Miharu {
         const callData = this.parseOpenAIResponse(data, duration);
         console.log('[miharu-ai] API call data:', callData);
         
-        // Save to database asynchronously
-        this.database.saveCall(callData).catch(err => {
-          console.error('[miharu-ai] Failed to save call data:', err);
-        });
+        if (this.onApiCall) {
+          this.onApiCall(callData);
+        }
       } else {
         const errorData = await responseClone.text();
         console.log(`[miharu-ai] API call failed with status ${response.status}:`, errorData);
         
-        const callData: LLMCallData = {
-          id: this.generateId(),
-          timestamp: Date.now(),
-          model: 'unknown',
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          cost_cents: 0,
-          duration_ms: duration,
-          status: 'error'
-        };
+        const callData = createErrorCallData(this.generateId(), duration);
         console.log('[miharu-ai] Error call data:', callData);
         
-        // Save error to database asynchronously
-        this.database.saveCall(callData).catch(err => {
-          console.error('[miharu-ai] Failed to save error call data:', err);
-        });
+        if (this.onApiCall) {
+          this.onApiCall(callData);
+        }
       }
     } catch (parseError) {
       console.error('[miharu-ai] Error parsing response:', parseError);
@@ -131,12 +99,4 @@ class Miharu {
   private generateId(): string {
     return `miharu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-
-  private isOpenAIApiCall(url: string): boolean {
-    return url.includes('api.openai.com');
-  }
 }
-
-const miharu = new Miharu();
-
-export default miharu;

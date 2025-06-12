@@ -30,3 +30,7 @@ export interface OpenAIResponse {
     index: number;
   }>;
 }
+
+export interface MiharuOptions {
+  // Future options can be added here
+}

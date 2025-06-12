@@ -1,55 +1,8 @@
-import * as http from 'http';
-import * as url from 'url';
-import { Database } from './database';
-import { formatCost } from './utils';
-import { LLMCallData } from './types';
+import { LLMCallData } from '../../shared/types';
+import { formatCost } from '../../shared/utils';
+import { Stats } from '../../analytics/aggregator';
 
-export async function startDashboard(port: number = 3001): Promise<void> {
-  const database = new Database();
-  await database.init();
-
-  const server = http.createServer(async (req, res) => {
-    const parsedUrl = url.parse(req.url || '', true);
-    const pathname = parsedUrl.pathname;
-
-    try {
-      if (pathname === '/') {
-        const html = await generateDashboardHTML(database);
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(html);
-      } else if (pathname === '/api/calls') {
-        const calls = await database.getAllCalls();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(calls));
-      } else {
-        res.writeHead(404);
-        res.end('Not Found');
-      }
-    } catch (error) {
-      console.error('Dashboard error:', error);
-      res.writeHead(500);
-      res.end('Internal Server Error');
-    }
-  });
-
-  server.listen(port, () => {
-    console.log(`🚀 Miharu dashboard running at http://localhost:${port}`);
-    console.log('Press Ctrl+C to stop');
-  });
-
-  // Graceful shutdown
-  process.on('SIGINT', async () => {
-    console.log('\nShutting down dashboard...');
-    server.close();
-    await database.close();
-    process.exit(0);
-  });
-}
-
-async function generateDashboardHTML(database: Database): Promise<string> {
-  const calls = await database.getAllCalls();
-  const stats = calculateStats(calls);
-
+export function generateDashboardHTML(calls: LLMCallData[], stats: Stats): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -218,33 +171,4 @@ async function generateDashboardHTML(database: Database): Promise<string> {
 </body>
 </html>
   `;
-}
-
-interface Stats {
-  totalCalls: number;
-  totalCost: number;
-  totalTokens: number;
-  avgResponseTime: number;
-}
-
-function calculateStats(calls: LLMCallData[]): Stats {
-  if (calls.length === 0) {
-    return {
-      totalCalls: 0,
-      totalCost: 0,
-      totalTokens: 0,
-      avgResponseTime: 0
-    };
-  }
-
-  const totalCost = calls.reduce((sum, call) => sum + call.cost_cents, 0);
-  const totalTokens = calls.reduce((sum, call) => sum + call.prompt_tokens + call.completion_tokens, 0);
-  const avgResponseTime = Math.round(calls.reduce((sum, call) => sum + call.duration_ms, 0) / calls.length);
-
-  return {
-    totalCalls: calls.length,
-    totalCost,
-    totalTokens,
-    avgResponseTime
-  };
 }

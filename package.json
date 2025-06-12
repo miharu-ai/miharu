@@ -2,8 +2,8 @@
   "name": "miharu-ai",
   "version": "0.1.0",
   "description": "LLMOps framework for TypeScript that provides observability for API usage",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/core/index.js",
+  "types": "dist/core/index.d.ts",
   "files": [
     "dist"
   ],
@@ -11,10 +11,10 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "node test/hello.js",
-    "dashboard": "node dist/dashboard.js"
+    "dashboard": "node dist/dashboard/server.js"
   },
   "bin": {
-    "miharu-ai": "dist/cli.js"
+    "miharu-ai": "dist/cli/index.js"
   },
   "keywords": [
     "llmops",

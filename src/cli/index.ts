@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { startDashboard } from './dashboard';
+import { dashboardCommand } from './commands/dashboard';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -8,7 +8,7 @@ const command = args[0];
 async function main() {
   switch (command) {
     case 'dashboard':
-      await startDashboard();
+      await dashboardCommand();
       break;
     default:
       console.log('Usage: npx miharu-ai dashboard');
