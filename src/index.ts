@@ -1,3 +1,6 @@
+import { LLMCallData, OpenAIResponse } from './types';
+import { calculateCost } from './cost-calculator';
+
 interface MiharuOptions {
   // Future options can be added here
 }
@@ -40,19 +43,70 @@ class Miharu {
     
     // Check if this is an OpenAI API call
     if (this.isOpenAIApiCall(url)) {
-      console.log('[miharu-ai] Intercepted OpenAI API call:', url);
-      const startTime = Date.now();
-      
-      const response = await this.originalFetch!(input, init);
-      
-      const duration = Date.now() - startTime;
-      console.log(`[miharu-ai] OpenAI API call completed in ${duration}ms`);
-      
-      return response;
+      return await this.handleOpenAICall(input, init);
     }
 
     // For non-OpenAI calls, use original fetch
     return this.originalFetch!(input, init);
+  }
+
+  private async handleOpenAICall(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    console.log('[miharu-ai] Intercepted OpenAI API call:', url);
+    
+    const startTime = Date.now();
+    const response = await this.originalFetch!(input, init);
+    const duration = Date.now() - startTime;
+    
+    try {
+      // Clone the response to read the body without consuming it
+      const responseClone = response.clone();
+      
+      if (response.ok) {
+        const data: OpenAIResponse = await responseClone.json();
+        const callData = this.parseOpenAIResponse(data, duration);
+        console.log('[miharu-ai] API call data:', callData);
+      } else {
+        const errorData = await responseClone.text();
+        console.log(`[miharu-ai] API call failed with status ${response.status}:`, errorData);
+        
+        const callData: LLMCallData = {
+          id: this.generateId(),
+          timestamp: Date.now(),
+          model: 'unknown',
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          cost_cents: 0,
+          duration_ms: duration,
+          status: 'error'
+        };
+        console.log('[miharu-ai] Error call data:', callData);
+      }
+    } catch (parseError) {
+      console.error('[miharu-ai] Error parsing response:', parseError);
+    }
+    
+    return response;
+  }
+
+  private parseOpenAIResponse(data: OpenAIResponse, duration: number): LLMCallData {
+    const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    const cost = calculateCost(data.model, usage.prompt_tokens, usage.completion_tokens);
+    
+    return {
+      id: data.id,
+      timestamp: Date.now(),
+      model: data.model,
+      prompt_tokens: usage.prompt_tokens,
+      completion_tokens: usage.completion_tokens,
+      cost_cents: cost,
+      duration_ms: duration,
+      status: 'success'
+    };
+  }
+
+  private generateId(): string {
+    return `miharu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   private isOpenAIApiCall(url: string): boolean {
