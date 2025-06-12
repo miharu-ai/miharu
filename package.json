@@ -10,7 +10,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "node test/hello.js"
+    "test": "node test/hello.js",
+    "dashboard": "node dist/dashboard.js"
+  },
+  "bin": {
+    "miharu-ai": "dist/cli.js"
   },
   "keywords": [
     "llmops",
@@ -20,8 +24,12 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "sqlite3": "^5.1.0"
+  },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@types/sqlite3": "^3.1.0"
   },
   "peerDependencies": {
     "openai": "^4.0.0"

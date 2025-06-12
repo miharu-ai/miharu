@@ -1,5 +1,6 @@
 import { LLMCallData, OpenAIResponse } from './types';
 import { calculateCost } from './cost-calculator';
+import { Database } from './database';
 
 interface MiharuOptions {
   // Future options can be added here
@@ -8,15 +9,27 @@ interface MiharuOptions {
 class Miharu {
   private initialized = false;
   private originalFetch: typeof globalThis.fetch | null = null;
+  private database: Database;
 
-  init(options?: MiharuOptions): void {
+  constructor() {
+    this.database = new Database();
+  }
+
+  async init(options?: MiharuOptions): Promise<void> {
     if (this.initialized) {
       return;
     }
 
     console.log('Hello, greeting from miharu!');
-    this.setupFetchInterception();
-    this.initialized = true;
+    
+    try {
+      await this.database.init();
+      this.setupFetchInterception();
+      this.initialized = true;
+    } catch (error) {
+      console.error('[miharu-ai] Failed to initialize database:', error);
+      throw error;
+    }
   }
 
   private setupFetchInterception(): void {
@@ -66,6 +79,11 @@ class Miharu {
         const data: OpenAIResponse = await responseClone.json();
         const callData = this.parseOpenAIResponse(data, duration);
         console.log('[miharu-ai] API call data:', callData);
+        
+        // Save to database asynchronously
+        this.database.saveCall(callData).catch(err => {
+          console.error('[miharu-ai] Failed to save call data:', err);
+        });
       } else {
         const errorData = await responseClone.text();
         console.log(`[miharu-ai] API call failed with status ${response.status}:`, errorData);
@@ -81,6 +99,11 @@ class Miharu {
           status: 'error'
         };
         console.log('[miharu-ai] Error call data:', callData);
+        
+        // Save error to database asynchronously
+        this.database.saveCall(callData).catch(err => {
+          console.error('[miharu-ai] Failed to save error call data:', err);
+        });
       }
     } catch (parseError) {
       console.error('[miharu-ai] Error parsing response:', parseError);
