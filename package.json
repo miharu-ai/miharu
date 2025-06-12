@@ -1,0 +1,29 @@
+{
+  "name": "miharu-ai",
+  "version": "0.1.0",
+  "description": "LLMOps framework for TypeScript that provides observability for API usage",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node test/hello.js"
+  },
+  "keywords": [
+    "llmops",
+    "openai",
+    "observability",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "openai": "^4.0.0"
+  }
+}
